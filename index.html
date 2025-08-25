@@ -838,48 +838,77 @@
         }
       }, { onlyOnce: true });
     });
+function loadWorksForClient() {
+  const worksList = document.getElementById('works-list');
+  worksList.innerHTML = '';
+  document.getElementById('saved-works-message').innerText = 'Cargando trabajos...';
+  if (!selectedSavedClientId) {
+    document.getElementById('saved-works-message').innerText = 'Por favor selecciona un cliente';
+    return;
+  }
 
-    function loadWorksForClient() {
-      const worksList = document.getElementById('works-list');
-      worksList.innerHTML = '';
-      document.getElementById('saved-works-message').innerText = 'Cargando trabajos...';
-      if (!selectedSavedClientId) {
-        document.getElementById('saved-works-message').innerText = 'Por favor selecciona un cliente';
-        return;
-      }
-
-      const worksRef = ref(database, 'works');
-      onValue(worksRef, (snapshot) => {
-        const works = snapshot.val();
-        worksList.innerHTML = '';
-        let hasWorks = false;
-        if (works) {
-          Object.entries(works).forEach(([id, work]) => {
-            if (work.clientId === selectedSavedClientId) {
-              hasWorks = true;
-              const workDate = new Date(work.date);
-              const warrantyDays = work.warranty === '1 mes' ? 30 : 0;
-              const warrantyEnd = new Date(workDate);
-              warrantyEnd.setDate(workDate.getDate() + warrantyDays);
-              const isExpired = warrantyEnd < new Date('2025-06-06');
-              const div = document.createElement('div');
-              div.innerHTML = `
-                <p>Fecha: ${work.date} | Descripción: ${work.description} | Trabajador: ${work.worker} | Garantía: ${work.warranty} ${isExpired ? '(Caducada)' : '(Vigente)'}</p>
-                ${work.photo ? `<img src="data:image/jpeg;base64,${work.photo}" style="max-width: 100px;">` : ''}
-                <button onclick="sendWhatsApp('${id}')">Enviar por WhatsApp</button>
-                <button id="delete-work-${id}">Eliminar Trabajo</button>
-              `;
-              worksList.appendChild(div);
+  const worksRef = ref(database, 'works');
+  onValue(worksRef, (snapshot) => {
+    const works = snapshot.val();
+    worksList.innerHTML = '';
+    let hasWorks = false;
+    if (works) {
+      Object.entries(works).forEach(([id, work]) => {
+        if (work.clientId === selectedSavedClientId) {
+          hasWorks = true;
+          const workDate = new Date(work.date);
+          const warrantyDays = work.warranty === '1 mes' ? 30 : 0;
+          const warrantyEnd = new Date(workDate);
+          warrantyEnd.setDate(workDate.getDate() + warrantyDays);
+          const isExpired = warrantyEnd < new Date('2025-06-06');
+          const div = document.createElement('div');
+          div.innerHTML = `
+            <p>Fecha: ${work.date} | Descripción: ${work.description} | Trabajador: ${work.worker} | Garantía: ${work.warranty} ${isExpired ? '(Caducada)' : '(Vigente)'}</p>
+            ${work.photo ? `<img src="data:image/jpeg;base64,${work.photo}" style="max-width: 100px;">` : ''}
+            <button onclick="sendWhatsApp('${id}')">Enviar por WhatsApp</button>
+          `;
+          // Crear y asignar el botón Eliminar Trabajo
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = 'Eliminar Trabajo';
+          deleteBtn.onclick = async () => {
+            if (confirm('¿Estás seguro de eliminar este trabajo? Esto devolverá las piezas al inventario y ajustará las finanzas.')) {
+              try {
+                for (const usedPart of work.usedParts || []) {
+                  const partRef = ref(database, `inventory/${usedPart.partId}`);
+                  await runTransaction(partRef, (part) => {
+                    if (part) {
+                      part.quantity += usedPart.quantity || 0;
+                      return part;
+                    }
+                    return null;
+                  });
+                }
+                const financeRef = ref(database, `finances/${work.date}`);
+                await runTransaction(financeRef, (currentFinance) => {
+                  const currentProfit = currentFinance?.profit || 0;
+                  return { profit: currentProfit - (work.price || 0) };
+                });
+                await remove(ref(database, `works/${id}`));
+                showMessage('saved-works-message', 'Trabajo eliminado, piezas devueltas y finanzas ajustadas.', 'green');
+                loadWorksForClient(); // Actualiza la lista
+              } catch (error) {
+                showMessage('saved-works-message', `Error al eliminar el trabajo: ${error.message}`, 'red');
+              }
             }
-          });
+          };
+          div.appendChild(deleteBtn);
+          worksList.appendChild(div);
         }
-        if (!hasWorks) {
-          document.getElementById('saved-works-message').innerText = 'No hay trabajos para este cliente';
-        } else {
-          document.getElementById('saved-works-message').innerText = '';
-        }
-      }, { onlyOnce: true });
+      });
     }
+    if (!hasWorks) {
+      document.getElementById('saved-works-message').innerText = 'No hay trabajos para este cliente';
+    } else {
+      document.getElementById('saved-works-message').innerText = '';
+    }
+  }, { onlyOnce: true });
+}
+   
 
     // Lógica de finanzas en tiempo real
     function updateFinances() {
