@@ -57,7 +57,7 @@
             <button type="button" onclick="addUsedPart()">Agregar Pieza Utilizada</button>
             <div id="used-parts-list"></div>
           </div>
-          <input type="file" id="work-photo" accept="image/*" onchange="previewWorkPhoto()">
+          <input type="file" id="work-photo" accept="image/*" multiple onchange="previewWorkPhoto()">
           <div id="work-photo-preview"></div>
           <input type="number" id="work-price" placeholder="Precio" required min="0" step="0.01">
           <select id="work-warranty" required>
@@ -205,20 +205,22 @@
       }
     };
 
-    window.previewWorkPhoto = function () {
-      const file = document.getElementById('work-photo').files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const img = document.createElement('img');
-          img.src = e.target.result;
-          img.style.maxWidth = '200px';
-          document.getElementById('work-photo-preview').innerHTML = '';
-          document.getElementById('work-photo-preview').appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      }
+  window.previewWorkPhoto = function () {
+  const files = document.getElementById('work-photo').files;
+  const previewDiv = document.getElementById('work-photo-preview');
+  previewDiv.innerHTML = '';
+  for (let i = 0; i < files.length; i++) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.maxWidth = '200px';
+      img.style.margin = '5px';
+      previewDiv.appendChild(img);
     };
+    reader.readAsDataURL(files[i]);
+  }
+};
 
     window.previewPhoto = function () {
       const file = document.getElementById('part-photo').files[0];
@@ -243,25 +245,34 @@
       }
     };
 
-    window.sendWhatsApp = function (workId) {
-      const worksRef = ref(database, `works/${workId}`);
-      onValue(worksRef, (snapshot) => {
-        const work = snapshot.val();
-        if (work) {
-          const clientsRef = ref(database, `clients/${work.clientId}`);
-          onValue(clientsRef, (clientSnapshot) => {
-            const client = clientSnapshot.val();
-            if (client) {
-              const message = `Hola ${client.name},\nAquí te enviamos un resumen de los servicios realizados en tu vehículo (${client.plates}):\n- Descripción: ${work.description}\n${work.photo ? 'Adjuntamos una foto del trabajo.' : ''}\nPara más detalles, contáctanos.`;
-              const phone = client.phone.replace(/[^0-9]/g, '');
-              const whatsappUrl = `https://wa.me/52${phone}?text=${encodeURIComponent(message)}`;
-              window.open(whatsappUrl, '_blank');
-            }
-          }, { onlyOnce: true });
+   window.sendWhatsApp = function (workId) {
+  const worksRef = ref(database, `works/${workId}`);
+  onValue(worksRef, (snapshot) => {
+    const work = snapshot.val();
+    if (work) {
+      const clientsRef = ref(database, `clients/${work.clientId}`);
+      onValue(clientsRef, (clientSnapshot) => {
+        const client = clientSnapshot.val();
+        if (client) {
+          const message = 
+  `*NOTA DE TRABAJO - TALLER CHINOS HMO*\n\n` +
+  `Cliente: ${client.name}\n` +
+  `Vehículo: ${client.plates} (${client.model} ${client.year})\n` +
+  `Fecha: ${work.date}\n` +
+  `Descripción del servicio: ${work.description}\n` +
+  `Trabajador responsable: ${work.worker}\n` +
+  `Costo: $${work.price}\n` +
+  `Garantía: ${work.warranty}\n\n` +
+  `Firma: Taller Chinos HMO\n` +
+  `Gracias por confiar en nosotros.`;
+          const phone = client.phone.replace(/[^0-9]/g, '');
+          const whatsappUrl = `https://wa.me/52${phone}?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
         }
       }, { onlyOnce: true });
-    };
-
+    }
+  }, { onlyOnce: true });
+};
     function showMessage(id, message, color = 'green') {
       const el = document.getElementById(id);
       el.innerText = message;
@@ -458,7 +469,7 @@
     reader.readAsDataURL(file);
   });
 }
-    document.getElementById('work-form').addEventListener('submit', async (e) => {
+document.getElementById('work-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (isSaving) return;
   if (!isConnected) {
@@ -483,17 +494,20 @@
   const worker = document.getElementById('work-worker').value;
   const price = parseFloat(document.getElementById('work-price').value);
   const warranty = document.getElementById('work-warranty').value;
-  const file = document.getElementById('work-photo').files[0];
-  let workPhotoBase64 = '';
+  const files = document.getElementById('work-photo').files;
+  let photos = [];
 
   try {
-    if (file) {
-      workPhotoBase64 = await compressImage(file, 800, 0.7);
-      if (workPhotoBase64.length > 400000) {
-        document.getElementById('work-message').innerText = 'La foto sigue excediendo el tamaño máximo (300 KB). Usa una imagen más pequeña.';
-        isSaving = false;
-        saveButton.disabled = false;
-        return;
+    if (files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const base64 = await compressImage(files[i], 800, 0.7);
+        if (base64.length > 400000) {
+          document.getElementById('work-message').innerText = 'Una de las fotos excede el tamaño máximo (300 KB). Usa imágenes más pequeñas.';
+          isSaving = false;
+          saveButton.disabled = false;
+          return;
+        }
+        photos.push(base64);
       }
     }
 
@@ -531,7 +545,7 @@
       price: price,
       warranty: warranty,
       usedParts: window.usedParts || [],
-      photo: workPhotoBase64,
+      photos: photos,
       createdAt: new Date().toISOString()
     });
 
@@ -825,11 +839,11 @@ function loadWorksForClient() {
           warrantyEnd.setDate(workDate.getDate() + warrantyDays);
           const isExpired = warrantyEnd < new Date('2025-06-06');
           const div = document.createElement('div');
-          div.innerHTML = `
-            <p>Fecha: ${work.date} | Descripción: ${work.description} | Trabajador: ${work.worker} | Garantía: ${work.warranty} ${isExpired ? '(Caducada)' : '(Vigente)'}</p>
-            ${work.photo ? `<img src="data:image/jpeg;base64,${work.photo}" style="max-width: 100px;">` : ''}
-            <button onclick="sendWhatsApp('${id}')">Enviar por WhatsApp</button>
-          `;
+        div.innerHTML = `
+  <p>Fecha: ${work.date} | Descripción: ${work.description} | Trabajador: ${work.worker} | Garantía: ${work.warranty} ${isExpired ? '(Caducada)' : '(Vigente)'}</p>
+  ${(work.photos || []).map(photo => `<img src="data:image/jpeg;base64,${photo}" style="max-width: 100px;">`).join('')}
+  <button onclick="sendWhatsApp('${id}')">Enviar por WhatsApp</button>
+`;
           // Crear y asignar el botón Eliminar Trabajo
           const deleteBtn = document.createElement('button');
           deleteBtn.textContent = 'Eliminar Trabajo';
