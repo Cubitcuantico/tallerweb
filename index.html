@@ -57,8 +57,9 @@
             <button type="button" onclick="addUsedPart()">Agregar Pieza Utilizada</button>
             <div id="used-parts-list"></div>
           </div>
-          <input type="file" id="work-photo" accept="image/*" multiple onchange="previewWorkPhoto()">
-          <div id="work-photo-preview"></div>
+          <input type="file" id="work-photo" accept="image/*" style="display:none">
+<div id="work-photo-preview"></div>
+<button type="button" id="add-photo-btn">Agregar otra foto</button>
           <input type="number" id="work-price" placeholder="Precio" required min="0" step="0.01">
           <select id="work-warranty" required>
             <option value="" disabled selected>Selecciona garantía</option>
@@ -114,7 +115,7 @@
     // Variables globales
     window.selectedPartId = null;
     window.usedParts = [];
-
+    
     // Funciones globales fuera del módulo
     window.signIn = function () {
       const email = document.getElementById('email').value;
@@ -469,6 +470,61 @@
     reader.readAsDataURL(file);
   });
 }
+// --- Manejo de fotos múltiples ---
+window.selectedPhotos = [];
+
+document.getElementById('add-photo-btn').onclick = function () {
+  document.getElementById('work-photo').click();
+};
+
+document.getElementById('work-photo').onchange = function () {
+  const files = Array.from(this.files);
+  files.forEach(file => {
+    window.selectedPhotos.push(file);
+  });
+  updatePhotoPreview();
+  this.value = ''; // Permite volver a seleccionar la misma foto si se elimina
+};
+
+window.removePreviewPhoto = function (index) {
+  window.selectedPhotos.splice(index, 1);
+  updatePhotoPreview();
+};
+
+function updatePhotoPreview() {
+  const previewDiv = document.getElementById('work-photo-preview');
+  previewDiv.innerHTML = '';
+  window.selectedPhotos.forEach((file, idx) => {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const photoDiv = document.createElement('div');
+      photoDiv.style.display = 'inline-block';
+      photoDiv.style.position = 'relative';
+      photoDiv.style.margin = '5px';
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.maxWidth = '120px';
+      img.style.borderRadius = '6px';
+      const removeBtn = document.createElement('button');
+      removeBtn.innerText = 'Eliminar';
+      removeBtn.style.position = 'absolute';
+      removeBtn.style.top = '2px';
+      removeBtn.style.right = '2px';
+      removeBtn.style.background = '#e74c3c';
+      removeBtn.style.color = '#fff';
+      removeBtn.style.border = 'none';
+      removeBtn.style.borderRadius = '3px';
+      removeBtn.style.cursor = 'pointer';
+      removeBtn.onclick = function () {
+        window.removePreviewPhoto(idx);
+      };
+      photoDiv.appendChild(img);
+      photoDiv.appendChild(removeBtn);
+      previewDiv.appendChild(photoDiv);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 document.getElementById('work-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (isSaving) return;
@@ -494,7 +550,7 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
   const worker = document.getElementById('work-worker').value;
   const price = parseFloat(document.getElementById('work-price').value);
   const warranty = document.getElementById('work-warranty').value;
-  const files = document.getElementById('work-photo').files;
+  const files = window.selectedPhotos;
   let photos = [];
 
   try {
