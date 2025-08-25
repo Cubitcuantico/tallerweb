@@ -459,171 +459,102 @@
   });
 }
     document.getElementById('work-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (isSaving) return;
-      if (!isConnected) {
-        document.getElementById('work-message').innerText = 'Sin conexión a Firebase. Por favor, verifica tu internet.';
-        return;
-      }
+  e.preventDefault();
+  if (isSaving) return;
+  if (!isConnected) {
+    document.getElementById('work-message').innerText = 'Sin conexión a Firebase. Por favor, verifica tu internet.';
+    return;
+  }
 
-      isSaving = true;
-      const saveButton = document.getElementById('save-work-btn');
-      saveButton.disabled = true;
-      document.getElementById('work-message').innerText = 'Guardando...';
+  isSaving = true;
+  const saveButton = document.getElementById('save-work-btn');
+  saveButton.disabled = true;
+  document.getElementById('work-message').innerText = 'Guardando...';
 
-      if (!selectedClientId) {
-        document.getElementById('work-message').innerText = 'Por favor selecciona un cliente';
+  if (!selectedClientId) {
+    document.getElementById('work-message').innerText = 'Por favor selecciona un cliente';
+    isSaving = false;
+    saveButton.disabled = false;
+    return;
+  }
+
+  const date = document.getElementById('work-date').value;
+  const description = document.getElementById('work-description').value;
+  const worker = document.getElementById('work-worker').value;
+  const price = parseFloat(document.getElementById('work-price').value);
+  const warranty = document.getElementById('work-warranty').value;
+  const file = document.getElementById('work-photo').files[0];
+  let workPhotoBase64 = '';
+
+  try {
+    if (file) {
+      workPhotoBase64 = await compressImage(file, 800, 0.7);
+      if (workPhotoBase64.length > 400000) {
+        document.getElementById('work-message').innerText = 'La foto sigue excediendo el tamaño máximo (300 KB). Usa una imagen más pequeña.';
         isSaving = false;
         saveButton.disabled = false;
         return;
       }
-      // Eliminamos la validación de piezas obligatorias
-      const date = document.getElementById('work-date').value;
-      const description = document.getElementById('work-description').value;
-      const worker = document.getElementById('work-worker').value;
-      const price = parseFloat(document.getElementById('work-price').value);
-      const warranty = document.getElementById('work-warranty').value;
-      const file = document.getElementById('work-photo').files[0];
-      let workPhotoBase64 = '';
+    }
 
-      try {
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = async function (e) {
-            workPhotoBase64 = e.target.result.split(',')[1];
-            if (workPhotoBase64.length > 400000) {
-              document.getElementById('work-message').innerText = 'La foto excede el tamaño máximo (300 KB).';
-              isSaving = false;
-              saveButton.disabled = false;
-              return;
+    const worksRef = ref(database, 'works');
+    const newWorkRef = push(worksRef);
+
+    // Solo actualizar inventario si hay piezas
+    if (window.usedParts && window.usedParts.length > 0) {
+      for (const usedPart of window.usedParts) {
+        const partRef = ref(database, `inventory/${usedPart.partId}`);
+        try {
+          await runTransaction(partRef, (part) => {
+            if (part && part.quantity >= usedPart.quantity) {
+              part.quantity -= usedPart.quantity;
+              return part;
+            } else {
+              throw new Error(`No hay suficiente cantidad de "${usedPart.name} (${usedPart.model})" en inventario. Intentaste usar ${usedPart.quantity}, pero solo hay ${part?.quantity || 0} disponible(s).`);
             }
-
-            const worksRef = ref(database, 'works');
-            const newWorkRef = push(worksRef);
-
-            // Solo actualizar inventario si hay piezas
-            if (window.usedParts && window.usedParts.length > 0) {
-              for (const usedPart of window.usedParts) {
-                const partRef = ref(database, `inventory/${usedPart.partId}`);
-                try {
-                  await runTransaction(partRef, (part) => {
-                    if (part && part.quantity >= usedPart.quantity) {
-                      part.quantity -= usedPart.quantity;
-                      return part;
-                    } else {
-                      throw new Error(`No hay suficiente cantidad de "${usedPart.name} (${usedPart.model})" en inventario. Intentaste usar ${usedPart.quantity}, pero solo hay ${part?.quantity || 0} disponible(s).`);
-                    }
-                  });
-                } catch (error) {
-                  document.getElementById('work-message').innerText = `Error: ${error.message}`;
-                  isSaving = false;
-                  saveButton.disabled = false;
-                  return;
-                }
-              }
-            }
-
-            try {
-              await set(newWorkRef, {
-                id: newWorkRef.key,
-                clientId: selectedClientId,
-                date: date,
-                description: description,
-                worker: worker,
-                price: price,
-                warranty: warranty,
-                usedParts: window.usedParts || [],
-                photo: workPhotoBase64,
-                createdAt: new Date().toISOString()
-              });
-
-              const financeRef = ref(database, `finances/${date}`);
-              await runTransaction(financeRef, (currentFinance) => {
-                const currentProfit = currentFinance?.profit || 0;
-                return { profit: currentProfit + price };
-              });
-
-              document.getElementById('work-message').innerText = 'Trabajo guardado con éxito';
-              document.getElementById('work-form').reset();
-              document.getElementById('work-date').value = new Date().toISOString().split('T')[0];
-              window.usedParts = [];
-              updateUsedPartsList();
-              document.getElementById('work-photo-preview').innerHTML = '';
-              selectedClientId = null;
-            } catch (error) {
-              document.getElementById('work-message').innerText = `Error al guardar el trabajo: ${error.message}`;
-            } finally {
-              isSaving = false;
-              saveButton.disabled = false;
-            }
-          };
-          reader.readAsDataURL(file);
-        } else {
-          const worksRef = ref(database, 'works');
-          const newWorkRef = push(worksRef);
-
-          // Solo actualizar inventario si hay piezas
-          if (window.usedParts && window.usedParts.length > 0) {
-            for (const usedPart of window.usedParts) {
-              const partRef = ref(database, `inventory/${usedPart.partId}`);
-              try {
-                await runTransaction(partRef, (part) => {
-                  if (part && part.quantity >= usedPart.quantity) {
-                    part.quantity -= usedPart.quantity;
-                    return part;
-                  } else {
-                    throw new Error(`No hay suficiente cantidad de "${usedPart.name} (${usedPart.model})" en inventario. Intentaste usar ${usedPart.quantity}, pero solo hay ${part?.quantity || 0} disponible(s).`);
-                  }
-                });
-              } catch (error) {
-                document.getElementById('work-message').innerText = `Error: ${error.message}`;
-                isSaving = false;
-                saveButton.disabled = false;
-                return;
-              }
-            }
-          }
-
-          try {
-            await set(newWorkRef, {
-              id: newWorkRef.key,
-              clientId: selectedClientId,
-              date: date,
-              description: description,
-              worker: worker,
-              price: price,
-              warranty: warranty,
-              usedParts: window.usedParts || [],
-              photo: '',
-              createdAt: new Date().toISOString()
-            });
-
-            const financeRef = ref(database, `finances/${date}`);
-            await runTransaction(financeRef, (currentFinance) => {
-              const currentProfit = currentFinance?.profit || 0;
-              return { profit: currentProfit + price };
-            });
-
-            document.getElementById('work-message').innerText = 'Trabajo guardado con éxito';
-            document.getElementById('work-form').reset();
-            document.getElementById('work-date').value = new Date().toISOString().split('T')[0];
-            window.usedParts = [];
-            updateUsedPartsList();
-            selectedClientId = null;
-          } catch (error) {
-            document.getElementById('work-message').innerText = `Error al guardar el trabajo: ${error.message}`;
-          } finally {
-            isSaving = false;
-            saveButton.disabled = false;
-          }
+          });
+        } catch (error) {
+          document.getElementById('work-message').innerText = `Error: ${error.message}`;
+          isSaving = false;
+          saveButton.disabled = false;
+          return;
         }
-      } catch (error) {
-        document.getElementById('work-message').innerText = `Error general: ${error.message}`;
-        isSaving = false;
-        saveButton.disabled = false;
       }
+    }
+
+    await set(newWorkRef, {
+      id: newWorkRef.key,
+      clientId: selectedClientId,
+      date: date,
+      description: description,
+      worker: worker,
+      price: price,
+      warranty: warranty,
+      usedParts: window.usedParts || [],
+      photo: workPhotoBase64,
+      createdAt: new Date().toISOString()
     });
 
+    const financeRef = ref(database, `finances/${date}`);
+    await runTransaction(financeRef, (currentFinance) => {
+      const currentProfit = currentFinance?.profit || 0;
+      return { profit: currentProfit + price };
+    });
+
+    document.getElementById('work-message').innerText = 'Trabajo guardado con éxito';
+    document.getElementById('work-form').reset();
+    document.getElementById('work-date').value = new Date().toISOString().split('T')[0];
+    window.usedParts = [];
+    updateUsedPartsList();
+    document.getElementById('work-photo-preview').innerHTML = '';
+    selectedClientId = null;
+  } catch (error) {
+    document.getElementById('work-message').innerText = `Error al guardar el trabajo: ${error.message}`;
+  } finally {
+    isSaving = false;
+    saveButton.disabled = false;
+  }
+});
     onValue(ref(database, 'works'), (snapshot) => {
       snapshot.forEach((childSnapshot) => {
         const work = childSnapshot.val();
