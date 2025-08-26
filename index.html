@@ -223,29 +223,30 @@
   }
 };
 
-window.previewPhoto = async function () {
+window.previewPhoto = function () {
   const file = document.getElementById('part-photo').files[0];
+  const previewDiv = document.getElementById('photo-preview');
+  previewDiv.innerHTML = '';
   if (file) {
-    const base64 = await compressImage(file, 800, 0.7);
-    if (base64.length > 400000) {
-      document.getElementById('inventory-message').innerText = 'La foto excede el tamaño máximo (300 KB). Usa una imagen más pequeña.';
-      document.getElementById('photo-preview').innerHTML = '';
-      return;
-    }
-    const img = document.createElement('img');
-    img.src = 'data:image/jpeg;base64,' + base64;
-    img.style.maxWidth = '200px';
-    document.getElementById('photo-preview').innerHTML = '';
-    document.getElementById('photo-preview').appendChild(img);
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.maxWidth = '120px';
+      img.style.borderRadius = '6px';
+      img.style.margin = '8px';
+      previewDiv.appendChild(img);
+    };
+    reader.readAsDataURL(file);
   }
+};
 
     window.removePart = async function (partId) {
       if (confirm('¿Estás seguro de eliminar esta pieza?')) {
         const partRef = ref(database, `inventory/${partId}`);
         await remove(partRef);
         document.getElementById('inventory-message').innerText = 'Pieza eliminada.';
-      }
-    };
+    }
   };
 
    window.sendWhatsApp = function (workId) {
@@ -472,6 +473,7 @@ window.previewPhoto = async function () {
     reader.readAsDataURL(file);
   });
 }
+
 // --- Manejo de fotos múltiples ---
 window.selectedPhotos = [];
 
@@ -666,102 +668,104 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
     });
 
     document.getElementById('inventory-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!isConnected) {
-        document.getElementById('inventory-message').innerText = 'Sin conexión a Firebase. Por favor, verifica tu internet.';
-        return;
+  e.preventDefault();
+  if (!isConnected) {
+    document.getElementById('inventory-message').innerText = 'Sin conexión a Firebase. Por favor, verifica tu internet.';
+    return;
+  }
+  const name = document.getElementById('part-name').value;
+  const model = document.getElementById('part-model').value;
+  const quantity = parseInt(document.getElementById('part-quantity').value);
+  const buyPrice = parseFloat(document.getElementById('part-buy-price').value);
+  const sellPrice = parseFloat(document.getElementById('part-sell-price').value);
+  const file = document.getElementById('part-photo').files[0];
+  let photoBase64 = '';
+
+  const partsRef = ref(database, 'inventory');
+  let existingPartId = null;
+  let existingPart = null;
+  await new Promise((resolve) => {
+    onValue(partsRef, (snapshot) => {
+      const parts = snapshot.val();
+      if (parts) {
+        Object.entries(parts).forEach(([id, part]) => {
+          if (part.name.toLowerCase() === name.toLowerCase() && part.model.toLowerCase() === model.toLowerCase()) {
+            existingPartId = id;
+            existingPart = part;
+          }
+        });
       }
-      const name = document.getElementById('part-name').value;
-      const model = document.getElementById('part-model').value;
-      const quantity = parseInt(document.getElementById('part-quantity').value);
-      const buyPrice = parseFloat(document.getElementById('part-buy-price').value);
-      const sellPrice = parseFloat(document.getElementById('part-sell-price').value);
-      const file = document.getElementById('part-photo').files[0];
-      let photoBase64 = '';
+      resolve();
+    }, { onlyOnce: true });
+  });
 
-      const partsRef = ref(database, 'inventory');
-      let existingPartId = null;
-      let existingPart = null;
-      await new Promise((resolve) => {
-        onValue(partsRef, (snapshot) => {
-          const parts = snapshot.val();
-          if (parts) {
-            Object.entries(parts).forEach(([id, part]) => {
-              if (part.name.toLowerCase() === name.toLowerCase() && part.model.toLowerCase() === model.toLowerCase()) {
-                existingPartId = id;
-                existingPart = part;
-              }
-            });
-          }
-          resolve();
-        }, { onlyOnce: true });
-      });
-
-      if (existingPartId) {
-        const partRef = ref(database, `inventory/${existingPartId}`);
-        const oldQuantity = existingPart.quantity;
-        await runTransaction(partRef, (part) => {
-          if (part) {
-            part.quantity += quantity;
-            part.buyPrice = buyPrice;
-            part.sellPrice = sellPrice;
-            if (file) {
-              part.photo = photoBase64;
-            }
-            return part;
-          }
-        });
-
-        const today = new Date().toISOString().split('T')[0];
-        const financeRef = ref(database, `finances/${today}`);
-        await runTransaction(financeRef, (currentFinance) => {
-          const currentProfit = currentFinance?.profit || 0;
-          const additionalCost = buyPrice * quantity;
-          return { profit: currentProfit - additionalCost };
-        });
-
-        document.getElementById('inventory-message').innerText = 'Pieza actualizada con éxito';
-        document.getElementById('inventory-form').reset();
-        document.getElementById('photo-preview').innerHTML = '';
-        loadInventory();
-      } else {
+  if (existingPartId) {
+    const partRef = ref(database, `inventory/${existingPartId}`);
+    await runTransaction(partRef, (part) => {
+      if (part) {
+        part.quantity += quantity;
+        part.buyPrice = buyPrice;
+        part.sellPrice = sellPrice;
         if (file) {
-          const reader = new FileReader();
-          reader.onload = async function (e) {
-            photoBase64 = e.target.result.split(',')[1];
-            if (photoBase64.length > 400000) {
-              document.getElementById('inventory-message').innerText = 'La foto excede el tamaño máximo (300 KB).';
-              return;
+          part.photo = photoBase64;
+        }
+        return part;
+      }
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+    const financeRef = ref(database, `finances/${today}`);
+    await runTransaction(financeRef, (currentFinance) => {
+      const currentProfit = currentFinance?.profit || 0;
+      const additionalCost = buyPrice * quantity;
+      return { profit: currentProfit - additionalCost };
+    });
+
+    document.getElementById('inventory-message').innerText = 'Pieza actualizada con éxito';
+    document.getElementById('inventory-form').reset();
+    document.getElementById('photo-preview').innerHTML = '';
+    loadInventory();
+  } else {
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const img = new Image();
+        img.src = e.target.result;
+
+        img.onload = async function () {
+          const maxSize = 300 * 1024; // 300 KB en bytes
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          // Reducir dimensiones manteniendo la proporción
+          let width = img.width;
+          let height = img.height;
+          const maxWidth = 800; // Límite de ancho
+          const maxHeight = 600; // Límite de alto
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
             }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
 
-            const newPartRef = push(partsRef);
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
 
-            await set(newPartRef, {
-              id: newPartRef.key,
-              name: name,
-              model: model,
-              quantity: quantity,
-              buyPrice: buyPrice,
-              sellPrice: sellPrice,
-              photo: photoBase64,
-              createdAt: new Date().toISOString()
-            });
+          // Comprimir la imagen (calidad 0.7, ajustable entre 0 y 1)
+          photoBase64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+          const byteLength = atob(photoBase64).length;
+          if (byteLength > maxSize) {
+            document.getElementById('inventory-message').innerText = 'La imagen sigue excediendo 300 KB después de la compresión. Intenta con una imagen más pequeña.';
+            return;
+          }
 
-            const today = new Date().toISOString().split('T')[0];
-            const financeRef = ref(database, `finances/${today}`);
-            await runTransaction(financeRef, (currentFinance) => {
-              const currentProfit = currentFinance?.profit || 0;
-              const cost = buyPrice * quantity;
-              return { profit: currentProfit - cost };
-            });
-
-            document.getElementById('inventory-message').innerText = 'Pieza agregada con éxito';
-            document.getElementById('inventory-form').reset();
-            document.getElementById('photo-preview').innerHTML = '';
-            loadInventory();
-          };
-          reader.readAsDataURL(file);
-        } else {
           const newPartRef = push(partsRef);
 
           await set(newPartRef, {
@@ -771,7 +775,7 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
             quantity: quantity,
             buyPrice: buyPrice,
             sellPrice: sellPrice,
-            photo: '',
+            photo: photoBase64,
             createdAt: new Date().toISOString()
           });
 
@@ -785,10 +789,43 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
 
           document.getElementById('inventory-message').innerText = 'Pieza agregada con éxito';
           document.getElementById('inventory-form').reset();
+          document.getElementById('photo-preview').innerHTML = '';
           loadInventory();
-        }
-      }
-    });
+        };
+
+        img.onerror = function () {
+          document.getElementById('inventory-message').innerText = 'Error al procesar la imagen.';
+        };
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const newPartRef = push(partsRef);
+
+      await set(newPartRef, {
+        id: newPartRef.key,
+        name: name,
+        model: model,
+        quantity: quantity,
+        buyPrice: buyPrice,
+        sellPrice: sellPrice,
+        photo: '',
+        createdAt: new Date().toISOString()
+      });
+
+      const today = new Date().toISOString().split('T')[0];
+      const financeRef = ref(database, `finances/${today}`);
+      await runTransaction(financeRef, (currentFinance) => {
+        const currentProfit = currentFinance?.profit || 0;
+        const cost = buyPrice * quantity;
+        return { profit: currentProfit - cost };
+      });
+
+      document.getElementById('inventory-message').innerText = 'Pieza agregada con éxito';
+      document.getElementById('inventory-form').reset();
+      loadInventory();
+    }
+  }
+});
 
     let inventoryListener = null;
     function loadInventory() {
@@ -977,6 +1014,52 @@ function loadWorksForClient() {
 
     updateFinances();
     loadInventory();
+        window.editPart = async function (partId) {
+      const partRef = ref(database, `inventory/${partId}`);
+      onValue(partRef, (snapshot) => {
+        const part = snapshot.val();
+        if (part) {
+          // Mostrar formulario de edición (puedes usar un modal o un div oculto)
+          const quantity = prompt('Nueva cantidad (agregar a la actual):', 0);
+          const buyPrice = prompt('Nuevo precio de compra por pieza:', part.buyPrice);
+          const sellPrice = prompt('Nuevo precio de venta por pieza:', part.sellPrice);
+
+          // Para la foto, usa un input temporal (o integra un file input si tienes un modal)
+          const file = prompt('Ingresa "s" para cambiar la foto (de lo contrario, presiona Enter):');
+          let photoBase64 = part.photo; // Mantener la foto actual por defecto
+          if (file === 's') {
+            // Aquí puedes integrar un file input, pero para simplicidad, asume que se sube una nueva foto (ajusta según tu interfaz)
+            // Por ahora, simulamos
+            photoBase64 = ''; // Reemplaza con lógica de FileReader si es necesario
+          }
+
+          runTransaction(partRef, (currentPart) => {
+            if (currentPart) {
+              currentPart.quantity += parseInt(quantity) || 0;
+              currentPart.buyPrice = parseFloat(buyPrice) || currentPart.buyPrice;
+              currentPart.sellPrice = parseFloat(sellPrice) || currentPart.sellPrice;
+              currentPart.photo = photoBase64;
+              return currentPart;
+            }
+          }).then(() => {
+            // Ajustar finanzas si se agregaron piezas
+            if (parseInt(quantity) > 0) {
+              const today = new Date().toISOString().split('T')[0];
+              const financeRef = ref(database, `finances/${today}`);
+              runTransaction(financeRef, (currentFinance) => {
+                const currentProfit = currentFinance?.profit || 0;
+                const additionalCost = parseFloat(buyPrice) * parseInt(quantity);
+                return { profit: currentProfit - additionalCost };
+              });
+            }
+            document.getElementById('inventory-message').innerText = 'Pieza actualizada con éxito';
+            loadInventory();
+          }).catch(error => {
+            document.getElementById('inventory-message').innerText = `Error al editar la pieza: ${error.message}`;
+          });
+        }
+      }, { onlyOnce: true });
+    };
   </script>
 </body>
 </html>
