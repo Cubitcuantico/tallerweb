@@ -1014,52 +1014,149 @@ function loadWorksForClient() {
 
     updateFinances();
     loadInventory();
-        window.editPart = async function (partId) {
-      const partRef = ref(database, `inventory/${partId}`);
-      onValue(partRef, (snapshot) => {
-        const part = snapshot.val();
-        if (part) {
-          // Mostrar formulario de edición (puedes usar un modal o un div oculto)
-          const quantity = prompt('Nueva cantidad (agregar a la actual):', 0);
-          const buyPrice = prompt('Nuevo precio de compra por pieza:', part.buyPrice);
-          const sellPrice = prompt('Nuevo precio de venta por pieza:', part.sellPrice);
+    window.editPart = async function (partId) {
+  const partRef = ref(database, `inventory/${partId}`);
+  onValue(partRef, (snapshot) => {
+    const part = snapshot.val();
+    if (part) {
+      // Prompts para cantidad y precios
+      const quantity = prompt('Nueva cantidad (agregar a la actual):', 0);
+      const buyPrice = prompt('Nuevo precio de compra por pieza:', part.buyPrice);
+      const sellPrice = prompt('Nuevo precio de venta por pieza:', part.sellPrice);
 
-          // Para la foto, usa un input temporal (o integra un file input si tienes un modal)
-          const file = prompt('Ingresa "s" para cambiar la foto (de lo contrario, presiona Enter):');
-          let photoBase64 = part.photo; // Mantener la foto actual por defecto
-          if (file === 's') {
-            // Aquí puedes integrar un file input, pero para simplicidad, asume que se sube una nueva foto (ajusta según tu interfaz)
-            // Por ahora, simulamos
-            photoBase64 = ''; // Reemplaza con lógica de FileReader si es necesario
+      // Preguntar si quiere cambiar la foto
+      const changePhoto = prompt('¿Quieres cambiar la foto? Ingresa "s" para sí, o presiona Enter para no:');
+      let photoBase64 = part.photo; // Mantener la foto actual por defecto
+
+      if (changePhoto && changePhoto.toLowerCase() === 's') {
+        return new Promise((resolve) => {
+          // Crear un input temporal para la foto
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+
+          input.onchange = async function (e) {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = async function (e) {
+                const img = new Image();
+                img.src = e.target.result;
+
+                img.onload = async function () {
+                  const maxSize = 300 * 1024; // 300 KB en bytes
+                  const canvas = document.createElement('canvas');
+                  const ctx = canvas.getContext('2d');
+
+                  // Reducir dimensiones
+                  let width = img.width;
+                  let height = img.height;
+                  const maxWidth = 800;
+                  const maxHeight = 600;
+                  if (width > height) {
+                    if (width > maxWidth) {
+                      height *= maxWidth / width;
+                      width = maxWidth;
+                    }
+                  } else {
+                    if (height > maxHeight) {
+                      width *= maxHeight / height;
+                      height = maxHeight;
+                    }
+                  }
+
+                  canvas.width = width;
+                  canvas.height = height;
+                  ctx.drawImage(img, 0, 0, width, height);
+
+                  // Comprimir
+                  photoBase64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+                  const byteLength = atob(photoBase64).length;
+                  if (byteLength > maxSize) {
+                    document.getElementById('inventory-message').innerText = 'La imagen excede 300 KB. Intenta con una más pequeña.';
+                    resolve(false);
+                    return;
+                  }
+
+                  // Resolver con éxito
+                  resolve(true);
+                };
+
+                img.onerror = function () {
+                  document.getElementById('inventory-message').innerText = 'Error al procesar la imagen.';
+                  resolve(false);
+                };
+              };
+              reader.readAsDataURL(file);
+            } else {
+              resolve(false);
+            }
+          };
+
+          // Agregar al DOM temporalmente y simular clic
+          document.body.appendChild(input);
+          input.click();
+
+          // Limpiar el input después de usarlo
+          input.onblur = () => document.body.removeChild(input);
+        }).then((success) => {
+          if (success) {
+            // Actualizar la pieza con la nueva foto
+            runTransaction(partRef, (currentPart) => {
+              if (currentPart) {
+                currentPart.quantity += parseInt(quantity) || 0;
+                currentPart.buyPrice = parseFloat(buyPrice) || currentPart.buyPrice;
+                currentPart.sellPrice = parseFloat(sellPrice) || currentPart.sellPrice;
+                currentPart.photo = photoBase64;
+                return currentPart;
+              }
+            }).then(() => {
+              if (parseInt(quantity) > 0) {
+                const today = new Date().toISOString().split('T')[0];
+                const financeRef = ref(database, `finances/${today}`);
+                runTransaction(financeRef, (currentFinance) => {
+                  const currentProfit = currentFinance?.profit || 0;
+                  const additionalCost = parseFloat(buyPrice) * parseInt(quantity);
+                  return { profit: currentProfit - additionalCost };
+                });
+              }
+              document.getElementById('inventory-message').innerText = 'Pieza actualizada con éxito';
+              loadInventory();
+            }).catch(error => {
+              document.getElementById('inventory-message').innerText = `Error al editar: ${error.message}`;
+            });
+          } else {
+            document.getElementById('inventory-message').innerText = 'No se actualizó la foto.';
           }
-
-          runTransaction(partRef, (currentPart) => {
-            if (currentPart) {
-              currentPart.quantity += parseInt(quantity) || 0;
-              currentPart.buyPrice = parseFloat(buyPrice) || currentPart.buyPrice;
-              currentPart.sellPrice = parseFloat(sellPrice) || currentPart.sellPrice;
-              currentPart.photo = photoBase64;
-              return currentPart;
-            }
-          }).then(() => {
-            // Ajustar finanzas si se agregaron piezas
-            if (parseInt(quantity) > 0) {
-              const today = new Date().toISOString().split('T')[0];
-              const financeRef = ref(database, `finances/${today}`);
-              runTransaction(financeRef, (currentFinance) => {
-                const currentProfit = currentFinance?.profit || 0;
-                const additionalCost = parseFloat(buyPrice) * parseInt(quantity);
-                return { profit: currentProfit - additionalCost };
-              });
-            }
-            document.getElementById('inventory-message').innerText = 'Pieza actualizada con éxito';
-            loadInventory();
-          }).catch(error => {
-            document.getElementById('inventory-message').innerText = `Error al editar la pieza: ${error.message}`;
-          });
-        }
-      }, { onlyOnce: true });
-    };
+        });
+      } else {
+        // Actualizar solo cantidad y precios si no cambia la foto
+        runTransaction(partRef, (currentPart) => {
+          if (currentPart) {
+            currentPart.quantity += parseInt(quantity) || 0;
+            currentPart.buyPrice = parseFloat(buyPrice) || currentPart.buyPrice;
+            currentPart.sellPrice = parseFloat(sellPrice) || currentPart.sellPrice;
+            return currentPart;
+          }
+        }).then(() => {
+          if (parseInt(quantity) > 0) {
+            const today = new Date().toISOString().split('T')[0];
+            const financeRef = ref(database, `finances/${today}`);
+            runTransaction(financeRef, (currentFinance) => {
+              const currentProfit = currentFinance?.profit || 0;
+              const additionalCost = parseFloat(buyPrice) * parseInt(quantity);
+              return { profit: currentProfit - additionalCost };
+            });
+          }
+          document.getElementById('inventory-message').innerText = 'Pieza actualizada con éxito';
+          loadInventory();
+        }).catch(error => {
+          document.getElementById('inventory-message').innerText = `Error al editar: ${error.message}`;
+        });
+      }
+    }
+  }, { onlyOnce: true });
+};
   </script>
 </body>
 </html>
