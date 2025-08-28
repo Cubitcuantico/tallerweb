@@ -60,13 +60,20 @@
           <input type="file" id="work-photo" accept="image/*" style="display:none">
 <div id="work-photo-preview"></div>
 <button type="button" id="add-photo-btn">Agregar otra foto</button>
-          <input type="number" id="work-price" placeholder="Precio" required min="0" step="0.01">
-          <select id="work-warranty" required>
-            <option value="" disabled selected>Selecciona garantía</option>
-            <option value="0 días">0 días</option>
-            <option value="1 mes">1 mes</option>
-          </select>
-          <button type="submit" id="save-work-btn">Guardar Trabajo</button>
+         <input type="number" id="work-price" placeholder="Precio" required min="0" step="0.01">
+<div>
+  <label for="work-payment-method">Método de pago:</label>
+  <select id="work-payment-method" name="work-payment-method" required>
+    <option value="cash">Efectivo</option>
+    <option value="card">Transferencia/Tarjeta</option>
+  </select>
+</div>
+<select id="work-warranty" required>
+  <option value="" disabled selected>Selecciona garantía</option>
+  <option value="0 días">0 días</option>
+  <option value="1 mes">1 mes</option>
+</select>
+<button type="submit" id="save-work-btn">Guardar Trabajo</button>
         </form>
         <p id="work-message"></p>
       </div>
@@ -94,16 +101,44 @@
         <p id="saved-works-message"></p>
       </div>
       <div id="finances" class="tab-content">
-        <h3>Finanzas</h3>
-        <div>
-          <h4>Ganancias Diarias (Hoy: <span id="current-date"></span>)</h4>
-          <p id="daily-profit">$0.00</p>
-        </div>
-        <div>
-          <h4>Ganancias Mensuales (Mes: <span id="current-month"></span>)</h4>
-          <p id="monthly-profit">$0.00</p>
-        </div>
-      </div>
+  <h3>Finanzas</h3>
+  <div>
+    <h4>Ganancias Diarias (Hoy: <span id="current-date"></span>)</h4>
+    <p id="daily-profit">$0.00</p>
+  </div>
+  <div>
+    <h4>Ganancias Mensuales (Mes: <span id="current-month"></span>)</h4>
+    <p id="monthly-profit">$0.00</p>
+  </div>
+  <h4>Gastos Misceláneos (Caja Chica)</h4>
+  <form id="misc-expense-form">
+    <input type="text" id="expense-description" placeholder="Descripción (ej. Gasolina)" required>
+    <input type="number" id="expense-amount" placeholder="Monto" required min="0" step="0.01">
+    <input type="date" id="expense-date" required>
+    <button type="submit">Agregar Gasto</button>
+  </form>
+  <p id="misc-expense-message"></p>
+  <div id="misc-expenses-list" style="max-height: 300px; overflow-y: auto;"></div>
+  <h4>Resumen de Corte de Caja</h4>
+  <table id="finance-summary">
+    <thead>
+      <tr>
+        <th>Período</th>
+        <th>Ingresos</th>
+        <th>Gastos Inventario</th>
+        <th>Gastos Misceláneos</th>
+        <th>Saldo Neto</th>
+        <th>Piezas Usadas</th>
+        <th>Recomendación</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr id="daily-summary"></tr>
+      <tr id="weekly-summary"></tr>
+      <tr id="monthly-summary"></tr>
+    </tbody>
+  </table>
+</div>
     </div>
   </div>
 
@@ -124,6 +159,7 @@
         .then(() => {
           document.getElementById('auth-section').style.display = 'none';
           document.getElementById('app-section').style.display = 'block';
+          document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
         })
         .catch(error => {
           document.getElementById('auth-message').innerText = error.message;
@@ -241,13 +277,36 @@ window.previewPhoto = function () {
   }
 };
 
-    window.removePart = async function (partId) {
-      if (confirm('¿Estás seguro de eliminar esta pieza?')) {
-        const partRef = ref(database, `inventory/${partId}`);
-        await remove(partRef);
-        document.getElementById('inventory-message').innerText = 'Pieza eliminada.';
-    }
-  };
+window.removePart = async function (partId) {
+  if (confirm('¿Estás seguro de eliminar esta pieza?')) {
+    const partRef = ref(database, `inventory/${partId}`);
+    onValue(partRef, (snapshot) => {
+      const part = snapshot.val();
+      if (part) {
+        const costToRevert = part.buyPrice * part.quantity; // Costo total a sumar de vuelta
+        remove(partRef).then(() => {
+          const today = new Date().toISOString().split('T')[0];
+          const financeRef = ref(database, `finances/${today}`);
+          runTransaction(financeRef, (currentFinance) => {
+            if (currentFinance) {
+              currentFinance.profit = (currentFinance.profit || 0) + costToRevert;
+              return currentFinance;
+            } else {
+              return { profit: costToRevert };
+            }
+          }).then(() => {
+            document.getElementById('inventory-message').innerText = 'Pieza eliminada con éxito';
+            loadInventory();
+          }).catch(error => {
+            document.getElementById('inventory-message').innerText = `Error al eliminar la pieza: ${error.message}`;
+          });
+        });
+      } else {
+        document.getElementById('inventory-message').innerText = 'Pieza no encontrada.';
+      }
+    }, { onlyOnce: true });
+  }
+};
 
    window.sendWhatsApp = function (workId) {
   const worksRef = ref(database, `works/${workId}`);
@@ -308,7 +367,34 @@ window.previewPhoto = function () {
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const database = getDatabase(app);
+    // --- AQUÍ PEGA EL BLOQUE DE GUARDAR GASTOS MISCELÁNEOS ---
+document.getElementById('misc-expense-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const description = document.getElementById('expense-description').value;
+  const amount = parseFloat(document.getElementById('expense-amount').value);
+  const date = document.getElementById('expense-date').value;
 
+  if (!description || isNaN(amount) || !date) {
+    document.getElementById('misc-expense-message').innerText = 'Completa todos los campos.';
+    return;
+  }
+
+  const expensesRef = ref(database, 'expenses');
+  const newExpenseRef = push(expensesRef);
+
+  await set(newExpenseRef, {
+    id: newExpenseRef.key,
+    description,
+    amount,
+    date,
+    createdAt: new Date().toISOString()
+  });
+
+  document.getElementById('misc-expense-message').innerText = 'Gasto agregado con éxito';
+  document.getElementById('misc-expense-form').reset();
+  document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+  loadMiscExpenses();
+});
     // Exponer al ámbito global
     window.auth = auth;
     window.database = database;
@@ -343,37 +429,39 @@ window.previewPhoto = function () {
     });
 
     document.getElementById('client-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (!isConnected) {
-        document.getElementById('client-message').innerText = 'Sin conexión a Firebase. Por favor, verifica tu internet.';
-        return;
-      }
-      const name = document.getElementById('client-name').value;
-      const phone = document.getElementById('client-phone').value;
-      const plates = document.getElementById('client-plates').value;
-      const model = document.getElementById('client-model').value;
-      const year = document.getElementById('client-year').value;
+  e.preventDefault();
+  if (!isConnected) {
+    document.getElementById('client-message').innerText = 'Sin conexión a Firebase. Por favor, verifica tu internet.';
+    return;
+  }
+  const name = document.getElementById('client-name').value;
+  const phone = document.getElementById('client-phone').value;
+  const plates = document.getElementById('client-plates').value;
+  const model = document.getElementById('client-model').value;
+  const year = document.getElementById('client-year').value;
+  const paymentMethod = document.getElementById('payment-method').value; // Nuevo campo
 
-      const clientsRef = ref(database, 'clients');
-      const newClientRef = push(clientsRef);
+  const clientsRef = ref(database, 'clients');
+  const newClientRef = push(clientsRef);
 
-      set(newClientRef, {
-        id: newClientRef.key,
-        name: name,
-        phone: phone,
-        plates: plates,
-        model: model,
-        year: year,
-        createdAt: new Date().toISOString()
-      })
-        .then(() => {
-          document.getElementById('client-message').innerText = 'Cliente guardado con éxito';
-          document.getElementById('client-form').reset();
-        })
-        .catch(error => {
-          document.getElementById('client-message').innerText = error.message;
-        });
+  set(newClientRef, {
+    id: newClientRef.key,
+    name: name,
+    phone: phone,
+    plates: plates,
+    model: model,
+    year: year,
+    paymentMethod: paymentMethod, // Guardar el método de pago
+    createdAt: new Date().toISOString()
+  })
+    .then(() => {
+      document.getElementById('client-message').innerText = 'Cliente guardado con éxito';
+      document.getElementById('client-form').reset();
+    })
+    .catch(error => {
+      document.getElementById('client-message').innerText = error.message;
     });
+});
 
     let selectedClientId = null;
     document.getElementById('client-search').addEventListener('input', (e) => {
@@ -554,7 +642,8 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
   const worker = document.getElementById('work-worker').value;
   const price = parseFloat(document.getElementById('work-price').value);
   const warranty = document.getElementById('work-warranty').value;
-  const files = window.selectedPhotos;
+  const paymentMethod = document.getElementById('work-payment-method').value;
+  const files = window.selectedPhotos || [];
   let photos = [];
 
   try {
@@ -574,28 +663,22 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
     const worksRef = ref(database, 'works');
     const newWorkRef = push(worksRef);
 
-    // Solo actualizar inventario si hay piezas
+    // Actualizar inventario si hay piezas utilizadas
     if (window.usedParts && window.usedParts.length > 0) {
       for (const usedPart of window.usedParts) {
         const partRef = ref(database, `inventory/${usedPart.partId}`);
-        try {
-          await runTransaction(partRef, (part) => {
-            if (part && part.quantity >= usedPart.quantity) {
-              part.quantity -= usedPart.quantity;
-              return part;
-            } else {
-              throw new Error(`No hay suficiente cantidad de "${usedPart.name} (${usedPart.model})" en inventario. Intentaste usar ${usedPart.quantity}, pero solo hay ${part?.quantity || 0} disponible(s).`);
-            }
-          });
-        } catch (error) {
-          document.getElementById('work-message').innerText = `Error: ${error.message}`;
-          isSaving = false;
-          saveButton.disabled = false;
-          return;
-        }
+        await runTransaction(partRef, (part) => {
+          if (part && part.quantity >= usedPart.quantity) {
+            part.quantity -= usedPart.quantity;
+            return part;
+          } else {
+            throw new Error(`No hay suficiente cantidad de "${usedPart.name} (${usedPart.model})" en inventario. Intentaste usar ${usedPart.quantity}, pero solo hay ${part?.quantity || 0} disponible(s).`);
+          }
+        });
       }
     }
 
+    // Guardar el trabajo con todas las propiedades
     await set(newWorkRef, {
       id: newWorkRef.key,
       clientId: selectedClientId,
@@ -604,11 +687,13 @@ document.getElementById('work-form').addEventListener('submit', async (e) => {
       worker: worker,
       price: price,
       warranty: warranty,
+      paymentMethod: paymentMethod,
       usedParts: window.usedParts || [],
       photos: photos,
       createdAt: new Date().toISOString()
     });
-
+   
+    // Actualizar finanzas
     const financeRef = ref(database, `finances/${date}`);
     await runTransaction(financeRef, (currentFinance) => {
       const currentProfit = currentFinance?.profit || 0;
@@ -981,39 +1066,163 @@ function loadWorksForClient() {
   }, { onlyOnce: true });
 }
    
-
     // Lógica de finanzas en tiempo real
-    function updateFinances() {
-      const now = new Date();
-      const today = now.toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-');
-      const currentMonth = today.substring(0, 7);
-      document.getElementById('current-date').innerText = today;
-      document.getElementById('current-month').innerText = currentMonth;
 
-      const financesRef = ref(database, 'finances');
-      onValue(financesRef, (snapshot) => {
-        const finances = snapshot.val();
-        let dailyProfit = 0;
-        let monthlyProfit = 0;
+function updateFinances() {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const currentMonth = today.substring(0, 7);
+  document.getElementById('current-date').innerText = today;
+  document.getElementById('current-month').innerText = currentMonth;
 
-        if (finances) {
-          if (finances[today]) {
-            dailyProfit = finances[today].profit || 0;
-          }
-          Object.keys(finances).forEach((date) => {
-            if (date.startsWith(currentMonth)) {
-              monthlyProfit += finances[date].profit || 0;
-            }
-          });
+  const financesRef = ref(database, 'finances');
+  onValue(financesRef, (snapshot) => {
+    const finances = snapshot.val();
+    let dailyProfit = 0;
+    let monthlyProfit = 0;
+
+    if (finances) {
+      if (finances[today]) {
+        dailyProfit = finances[today].profit || 0;
+      }
+      Object.keys(finances).forEach((date) => {
+        if (date.startsWith(currentMonth)) {
+          monthlyProfit += finances[date].profit || 0;
         }
-
-        document.getElementById('daily-profit').innerText = `$${dailyProfit.toFixed(2)}`;
-        document.getElementById('monthly-profit').innerText = `$${monthlyProfit.toFixed(2)}`;
       });
     }
 
-    updateFinances();
-    loadInventory();
+    document.getElementById('daily-profit').innerText = `$${dailyProfit.toFixed(2)}`;
+    document.getElementById('monthly-profit').innerText = `$${monthlyProfit.toFixed(2)}`;
+  });
+}
+
+function updateFinanceSummary() {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const worksRef = ref(database, 'works');
+  const financesRef = ref(database, 'finances');
+  const expensesRef = ref(database, 'expenses');
+  const inventoryRef = ref(database, 'inventory');
+
+  onValue(worksRef, (worksSnapshot) => {
+    onValue(financesRef, (financesSnapshot) => {
+      onValue(expensesRef, (expensesSnapshot) => {
+        onValue(inventoryRef, (inventorySnapshot) => {
+          const works = worksSnapshot.val() || {};
+          const finances = financesSnapshot.val() || {};
+          const expenses = expensesSnapshot.val() || {};
+          const inventory = inventorySnapshot.val() || {};
+
+          const calcIncome = (startDate, endDate) => {
+            let income = 0;
+            Object.values(works).forEach(work => {
+              const workDate = new Date(work.date);
+              if (workDate >= startDate && workDate <= endDate) {
+                income += work.price || 0;
+              }
+            });
+            return income;
+          };
+
+          const calcInventoryExpenses = (startDate, endDate) => {
+            let expense = 0;
+            Object.values(works).forEach(work => {
+              const workDate = new Date(work.date);
+              if (workDate >= startDate && workDate <= endDate && work.usedParts) {
+                work.usedParts.forEach(part => {
+                  const invPart = inventory[part.partId];
+                  if (invPart) expense += (invPart.buyPrice || 0) * part.quantity;
+                });
+              }
+            });
+            return expense;
+          };
+
+          const calcMiscExpenses = (startDate, endDate) => {
+            let expense = 0;
+            Object.values(expenses || {}).forEach(exp => {
+              const expDate = new Date(exp.date);
+              if (expDate >= startDate && expDate <= endDate) {
+                expense += exp.amount || 0;
+              }
+            });
+            return expense;
+          };
+
+          const calcUsedPartsCount = (startDate, endDate) => {
+            let count = 0;
+            Object.values(works).forEach(work => {
+              const workDate = new Date(work.date);
+              if (workDate >= startDate && workDate <= endDate && work.usedParts) {
+                count += work.usedParts.length;
+              }
+            });
+            return count;
+          };
+
+          const updateRow = (id, startDate, endDate) => {
+            const income = calcIncome(startDate, endDate);
+            const invExpense = calcInventoryExpenses(startDate, endDate);
+            const miscExpense = calcMiscExpenses(startDate, endDate);
+            const netBalance = income - invExpense - miscExpense;
+            const usedPartsCount = calcUsedPartsCount(startDate, endDate);
+
+            const row = document.getElementById(id);
+            row.innerHTML = `
+              <td>${id === 'daily-summary' ? 'Diario' : id === 'weekly-summary' ? 'Semanal' : 'Mensual'}</td>
+              <td>$${income.toFixed(2)}</td>
+              <td>$${invExpense.toFixed(2)}</td>
+              <td>$${miscExpense.toFixed(2)}</td>
+              <td>$${netBalance.toFixed(2)}</td>
+              <td>${usedPartsCount} piezas</td>
+              <td>${netBalance > 0 ? 'Posible reinversión' : 'Revisar gastos'}</td>
+            `;
+          };
+
+          updateRow('daily-summary', new Date(today), new Date(today));
+          updateRow('weekly-summary', weekStart, now);
+          updateRow('monthly-summary', monthStart, now);
+        });
+      });
+    });
+  });
+}
+function loadMiscExpenses() {
+  const expensesList = document.getElementById('misc-expenses-list');
+  expensesList.innerHTML = '';
+  const expensesRef = ref(database, 'expenses');
+  onValue(expensesRef, (snapshot) => {
+    const expenses = snapshot.val();
+    if (expenses) {
+      // Ordenar por fecha descendente
+      const sorted = Object.values(expenses).sort((a, b) => new Date(b.date) - new Date(a.date));
+      let total = 0;
+      sorted.forEach(exp => {
+        total += exp.amount || 0;
+        const div = document.createElement('div');
+        div.innerHTML = `<strong>${exp.date}</strong> - ${exp.description}: <span style="color:red;">$${exp.amount.toFixed(2)}</span>`;
+        expensesList.appendChild(div);
+      });
+      // Mostrar el total gastado abajo
+      const totalDiv = document.createElement('div');
+      totalDiv.style.fontWeight = 'bold';
+      totalDiv.style.marginTop = '10px';
+      totalDiv.innerHTML = `Total gastado en misceláneos: <span style="color:red;">$${total.toFixed(2)}</span>`;
+      expensesList.appendChild(totalDiv);
+    } else {
+      expensesList.innerHTML = '<div>No hay gastos registrados.</div>';
+    }
+  });
+}
+// Solo llama una vez a las funciones:
+updateFinances();
+updateFinanceSummary();
+loadMiscExpenses();
     window.editPart = async function (partId) {
   const partRef = ref(database, `inventory/${partId}`);
   onValue(partRef, (snapshot) => {
