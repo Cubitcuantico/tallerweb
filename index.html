@@ -140,6 +140,41 @@
     </tbody>
   </table>
 </div>
+<div class="finance-section">
+  <h4>Ingresos por Método de Pago</h4>
+  <div>
+    <label for="month-select">Seleccionar mes:</label>
+    <select id="month-select" onchange="updateFinancesWithPaymentMethod()">
+      <option value="2025-01">Enero 2025</option>
+      <option value="2025-02">Febrero 2025</option>
+      <option value="2025-03">Marzo 2025</option>
+       <option value="2025-04">Abril 2025</option>
+      <option value="2025-05">Mayo 2025</option>
+      <option value="2025-06">Junio 2025</option>
+      <option value="2025-07">Julio 2025</option>
+      <option value="2025-08">Agosto 2025</option>
+      <option value="2025-09">Septiembre 2025</option>
+       <option value="2025-10">Octubre 2025</option>
+      <option value="2025-11">Noviembre 2025</option>
+      <option value="2025-12">Diciembre 2025</option>
+      <!-- Agrega más opciones para meses futuros según necesites -->
+    </select>
+  </div>
+  <div class="payment-summary">
+    <div class="payment-method-card">
+      <h4>Efectivo</h4>
+      <p id="cash-total">$0.00</p>
+    </div>
+    <div class="payment-method-card">
+      <h4>Transferencia/Tarjeta</h4>
+      <p id="card-total">$0.00</p>
+    </div>
+  </div>
+  <div class="download-buttons">
+    <button onclick="downloadPDFReport()">Descargar Reporte PDF</button>
+    <button onclick="downloadExcelReport()">Descargar Excel</button>
+  </div>
+</div>
     </div>
   </div>
 
@@ -189,7 +224,11 @@
       }
       document.getElementById(tabName).classList.add('active');
       document.querySelector(`button[onclick="openTab('${tabName}')"]`).classList.add('active');
-    };
+    
+      if (tabName === 'finances') {
+    updateFinancesWithPaymentMethod();
+  }
+};
 
     window.addUsedPart = function () {
       console.log('Antes de agregar, selectedPartId:', window.selectedPartId);
@@ -1222,10 +1261,194 @@ function loadMiscExpenses() {
     }
   });
 }
+// Función para actualizar finanzas con método de pago
+function updateFinancesWithPaymentMethod() {
+  const selectedMonth = document.getElementById('month-select').value;
+  const worksRef = ref(database, 'works');
+  
+  onValue(worksRef, (snapshot) => {
+    const works = snapshot.val() || {};
+    let cashTotal = 0;
+    let cardTotal = 0;
+    
+    Object.values(works).forEach(work => {
+      const workMonth = work.date.substring(0, 7);
+      if (workMonth === selectedMonth) {
+        if (work.paymentMethod === 'cash') {
+          cashTotal += work.price || 0;
+        } else if (work.paymentMethod === 'card') {
+          cardTotal += work.price || 0;
+        }
+      }
+    });
+    
+    document.getElementById('cash-total').innerText = `$${cashTotal.toFixed(2)}`;
+    document.getElementById('card-total').innerText = `$${cardTotal.toFixed(2)}`;
+    
+    // Guardar resumen mensual
+    const monthlyRef = ref(database, `monthly-summaries/${selectedMonth}`);
+    set(monthlyRef, {
+      month: selectedMonth,
+      cashTotal: cashTotal,
+      cardTotal: cardTotal,
+      totalIncome: cashTotal + cardTotal,
+      lastUpdated: new Date().toISOString()
+    });
+  });
+}
+
+// Función para descargar reporte PDF
+function downloadPDFReport() {
+  const selectedMonth = document.getElementById('month-select').value;
+  const worksRef = ref(database, 'works');
+  const expensesRef = ref(database, 'expenses');
+  
+  Promise.all([
+    new Promise(resolve => onValue(worksRef, resolve, { onlyOnce: true })),
+    new Promise(resolve => onValue(expensesRef, resolve, { onlyOnce: true }))
+  ]).then(([worksSnapshot, expensesSnapshot]) => {
+    const works = worksSnapshot.val() || {};
+    const expenses = expensesSnapshot.val() || {};
+    
+    // Generar HTML del reporte
+    const reportHTML = generateReportHTML(works, expenses, selectedMonth);
+    
+    // Crear ventana para imprimir
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+    printWindow.print();
+  });
+}
+
+// Función para generar HTML del reporte
+function generateReportHTML(works, expenses, month) {
+  let cashTotal = 0, cardTotal = 0, totalExpenses = 0;
+  const worksList = [];
+  const expensesList = [];
+  
+  // Procesar trabajos del mes
+  Object.values(works).forEach(work => {
+    if (work.date.startsWith(month)) {
+      worksList.push(work);
+      if (work.paymentMethod === 'cash') cashTotal += work.price || 0;
+      else if (work.paymentMethod === 'card') cardTotal += work.price || 0;
+    }
+  });
+  
+  // Procesar gastos del mes
+  Object.values(expenses).forEach(expense => {
+    if (expense.date.startsWith(month)) {
+      expensesList.push(expense);
+      totalExpenses += expense.amount || 0;
+    }
+  });
+  
+  return `
+    <html>
+    <head>
+      <title>Reporte Financiero ${month}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .summary { background: #f8f9fa; padding: 15px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f8f9fa; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>TALLER CHINOS HMO</h1>
+        <h2>Reporte Financiero - ${month}</h2>
+      </div>
+      <div class="summary">
+        <h3>Resumen del Mes</h3>
+        <p>Ingresos en Efectivo: $${cashTotal.toFixed(2)}</p>
+        <p>Ingresos por Transferencia/Tarjeta: $${cardTotal.toFixed(2)}</p>
+        <p>Total de Ingresos: $${(cashTotal + cardTotal).toFixed(2)}</p>
+        <p>Total de Gastos: $${totalExpenses.toFixed(2)}</p>
+        <p><strong>Ganancia Neta: $${(cashTotal + cardTotal - totalExpenses).toFixed(2)}</strong></p>
+      </div>
+      ${generateWorksTable(worksList)}
+      ${generateExpensesTable(expensesList)}
+    </body>
+    </html>
+  `;
+}
+
+// Función auxiliar para generar tabla de trabajos
+function generateWorksTable(worksList) {
+  if (worksList.length === 0) return '<h3>Trabajos del Mes</h3><p>No hay trabajos registrados.</p>';
+  let table = '<h3>Trabajos del Mes</h3><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Precio</th><th>Método</th></tr></thead><tbody>';
+  worksList.forEach(work => {
+    table += `<tr><td>${work.date}</td><td>${work.description}</td><td>$${work.price.toFixed(2)}</td><td>${work.paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta/Transferencia'}</td></tr>`;
+  });
+  table += '</tbody></table>';
+  return table;
+}
+
+// Función auxiliar para generar tabla de gastos
+function generateExpensesTable(expensesList) {
+  if (expensesList.length === 0) return '<h3>Gastos del Mes</h3><p>No hay gastos registrados.</p>';
+  let table = '<h3>Gastos del Mes</h3><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Monto</th></tr></thead><tbody>';
+  expensesList.forEach(exp => {
+    table += `<tr><td>${exp.date}</td><td>${exp.description}</td><td>$${exp.amount.toFixed(2)}</td></tr>`;
+  });
+  table += '</tbody></table>';
+  return table;
+}
+
+// Función para descargar reporte Excel (CSV)
+function downloadExcelReport() {
+  const selectedMonth = document.getElementById('month-select').value;
+  const worksRef = ref(database, 'works');
+  const expensesRef = ref(database, 'expenses');
+  
+  Promise.all([
+    new Promise(resolve => onValue(worksRef, resolve, { onlyOnce: true })),
+    new Promise(resolve => onValue(expensesRef, resolve, { onlyOnce: true }))
+  ]).then(([worksSnapshot, expensesSnapshot]) => {
+    const works = worksSnapshot.val() || {};
+    const expenses = expensesSnapshot.val() || {};
+    
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'Tipo,Fecha,Descripción,Monto,Método\n';
+    
+    // Agregar trabajos
+    Object.values(works).forEach(work => {
+      if (work.date.startsWith(selectedMonth)) {
+        csvContent += `Trabajo,${work.date},"${work.description.replace(/"/g, '""')}",${work.price},${work.paymentMethod}\n`;
+      }
+    });
+    
+    // Agregar gastos
+    Object.values(expenses).forEach(exp => {
+      if (exp.date.startsWith(selectedMonth)) {
+        csvContent += `Gasto,${exp.date},"${exp.description.replace(/"/g, '""')}",${exp.amount},\n`;
+      }
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `reporte_${selectedMonth}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+}
+// Inicializar selector de mes con mes actual
+document.getElementById('month-select').value = new Date().toISOString().substring(0, 7);
 // Solo llama una vez a las funciones:
 updateFinances();
 updateFinanceSummary();
 loadMiscExpenses();
+// Exponer funciones de finanzas al ámbito global
+window.updateFinancesWithPaymentMethod = updateFinancesWithPaymentMethod;
+window.downloadPDFReport = downloadPDFReport;
+window.downloadExcelReport = downloadExcelReport;
+
     window.editPart = async function (partId) {
   const partRef = ref(database, `inventory/${partId}`);
   onValue(partRef, (snapshot) => {
