@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Bienvenido al Sistema de Taller</h1>
+   <h1 class="welcome-title">LOS CHINOS HMO</h1>
     <div id="auth-section">
       <h2>Iniciar Sesión</h2>
       <input type="email" id="email" placeholder="Correo electrónico">
@@ -16,168 +16,182 @@
       <button onclick="signIn()">Iniciar Sesión</button>
       <p id="auth-message"></p>
     </div>
-    <div id="app-section" style="display: none;">
-      <h2>Área de Gestión</h2>
-      <button onclick="signOut()">Cerrar Sesión</button>
-      <div class="tabs">
-        <button class="tab-button" onclick="openTab('new-client')">Nuevo Cliente</button>
-        <button class="tab-button" onclick="openTab('work-register')">Registro de Trabajo</button>
-        <button class="tab-button" onclick="openTab('inventory')">Inventario</button>
-        <button class="tab-button" onclick="openTab('saved-works')">Trabajos Guardados</button>
-        <button class="tab-button" onclick="openTab('finances')">Finanzas</button>
-      </div>
-      <div id="new-client" class="tab-content">
-        <h3>Ingresar Cliente</h3>
-        <form id="client-form">
-          <input type="text" id="client-name" placeholder="Nombre del cliente" required>
-          <input type="tel" id="client-phone" placeholder="Número telefónico" required>
-          <input type="text" id="client-plates" placeholder="Placas del carro" required>
-          <input type="text" id="client-model" placeholder="Modelo del carro" required>
-          <input type="number" id="client-year" placeholder="Año del carro" required>
-          <button type="submit">Guardar Cliente</button>
-        </form>
-        <p id="client-message"></p>
-      </div>
-      <div id="work-register" class="tab-content">
-        <h3>Registro de Trabajo</h3>
-        <form id="work-form">
-          <input type="text" id="client-search" placeholder="Buscar cliente (nombre, teléfono, placas)" required>
-          <div id="search-results" style="max-height: 150px; overflow-y: auto;"></div>
-          <input type="text" id="work-date" placeholder="Fecha (YYYY-MM-DD)" required>
-          <textarea id="work-description" placeholder="Descripción del servicio (ej. Reparación de elevador)" required></textarea>
-          <select id="work-worker" required>
-            <option value="" disabled selected>Selecciona trabajador</option>
-            <option value="Trabajador 1">Trabajador 1</option>
-            <option value="Trabajador 2">Trabajador 2</option>
-          </select>
-          <div id="used-parts-section">
-            <h4>Piezas Utilizadas</h4>
-            <input type="text" id="work-part-search" placeholder="Buscar pieza (por modelo o nombre)">
-            <div id="part-results" style="max-height: 150px; overflow-y: auto;"></div>
-            <button type="button" onclick="addUsedPart()">Agregar Pieza Utilizada</button>
-            <div id="used-parts-list"></div>
-          </div>
-          <input type="file" id="work-photo" accept="image/*" style="display:none">
-<div id="work-photo-preview"></div>
-<button type="button" id="add-photo-btn">Agregar otra foto</button>
-         <input type="number" id="work-price" placeholder="Precio" required min="0" step="0.01">
-<div>
-  <label for="work-payment-method">Método de pago:</label>
-  <select id="work-payment-method" name="work-payment-method" required>
-    <option value="cash">Efectivo</option>
-    <option value="card">Transferencia/Tarjeta</option>
-  </select>
-</div>
-<select id="work-warranty" required>
-  <option value="" disabled selected>Selecciona garantía</option>
-  <option value="0 días">0 días</option>
-  <option value="1 mes">1 mes</option>
-</select>
-<button type="submit" id="save-work-btn">Guardar Trabajo</button>
-        </form>
-        <p id="work-message"></p>
-      </div>
-      <div id="inventory" class="tab-content">
-        <h3>Inventario</h3>
-        <form id="inventory-form">
-          <input type="text" id="part-name" placeholder="Nombre de la pieza (ej. Engrane)" required>
-          <input type="text" id="part-model" placeholder="Modelo del carro (ej. Mazda)" required>
-          <input type="number" id="part-quantity" placeholder="Cantidad" required min="1">
-          <input type="number" id="part-buy-price" placeholder="Precio de compra por pieza" required min="0" step="0.01">
-          <input type="number" id="part-sell-price" placeholder="Precio de venta por pieza" required min="0" step="0.01">
-          <input type="file" id="part-photo" accept="image/*" onchange="previewPhoto()">
-          <div id="photo-preview"></div>
-          <button type="submit">Agregar Pieza</button>
-        </form>
-        <input type="text" id="search-inventory" placeholder="Buscar pieza (nombre o modelo)">
-        <div id="inventory-list" style="max-height: 300px; overflow-y: auto;"></div>
-        <p id="inventory-message"></p>
-      </div>
-      <div id="saved-works" class="tab-content">
-        <h3>Trabajos Guardados</h3>
-        <input type="text" id="saved-client-search" placeholder="Buscar cliente (nombre, teléfono, placas)" required>
-        <div id="saved-client-results" style="max-height: 150px; overflow-y: auto;"></div>
-        <div id="works-list" style="max-height: 300px; overflow-y: auto;"></div>
-        <p id="saved-works-message"></p>
-      </div>
-      <div id="finances" class="tab-content">
-  <h3>Finanzas</h3>
-  <div>
-    <h4>Ganancias Diarias (Hoy: <span id="current-date"></span>)</h4>
-    <p id="daily-profit">$0.00</p>
-  </div>
-  <div>
-    <h4>Ganancias Mensuales (Mes: <span id="current-month"></span>)</h4>
-    <p id="monthly-profit">$0.00</p>
-  </div>
-  <h4>Gastos Misceláneos (Caja Chica)</h4>
-  <form id="misc-expense-form">
-    <input type="text" id="expense-description" placeholder="Descripción (ej. Gasolina)" required>
-    <input type="number" id="expense-amount" placeholder="Monto" required min="0" step="0.01">
-    <input type="date" id="expense-date" required>
-    <button type="submit">Agregar Gasto</button>
-  </form>
-  <p id="misc-expense-message"></p>
-  <div id="misc-expenses-list" style="max-height: 300px; overflow-y: auto;"></div>
-  <h4>Resumen de Corte de Caja</h4>
-  <div class="finance-summary-container">
-  <table id="finance-summary">
-    <thead>
-      <tr>
-        <th>Período</th>
-        <th>Ingresos</th>
-        <th>Gastos Inventario</th>
-        <th>Gastos Misceláneos</th>
-        <th>Saldo Neto</th>
-        <th>Piezas Usadas</th>
-        <th>Recomendación</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr id="daily-summary"></tr>
-      <tr id="weekly-summary"></tr>
-      <tr id="monthly-summary"></tr>
-    </tbody>
-  </table>
-</div>
-<div class="finance-section">
-  <h4>Ingresos por Método de Pago</h4>
-  <div>
-    <label for="month-select">Seleccionar mes:</label>
-    <select id="month-select" onchange="updateFinancesWithPaymentMethod()">
-      <option value="2025-01">Enero 2025</option>
-      <option value="2025-02">Febrero 2025</option>
-      <option value="2025-03">Marzo 2025</option>
-       <option value="2025-04">Abril 2025</option>
-      <option value="2025-05">Mayo 2025</option>
-      <option value="2025-06">Junio 2025</option>
-      <option value="2025-07">Julio 2025</option>
-      <option value="2025-08">Agosto 2025</option>
-      <option value="2025-09">Septiembre 2025</option>
-       <option value="2025-10">Octubre 2025</option>
-      <option value="2025-11">Noviembre 2025</option>
-      <option value="2025-12">Diciembre 2025</option>
-      <!-- Agrega más opciones para meses futuros según necesites -->
-    </select>
-  </div>
-  <div class="payment-summary">
-    <div class="payment-method-card">
-      <h4>Efectivo</h4>
-      <p id="cash-total">$0.00</p>
-    </div>
-    <div class="payment-method-card">
-      <h4>Transferencia/Tarjeta</h4>
-      <p id="card-total">$0.00</p>
-    </div>
-  </div>
-  <div class="download-buttons">
-    <button onclick="downloadPDFReport()">Descargar Reporte PDF</button>
-    <button onclick="downloadExcelReport()">Descargar Excel</button>
-  </div>
-</div>
-    </div>
+   <div id="app-section" style="display: none;">
+  <h2>Área de Gestión</h2>
+  <div class="sidebar">
+    <h2>Menú</h2>
+    <button class="tab-button" onclick="openTab('new-client')">Nuevo Cliente</button>
+    <button class="tab-button" onclick="openTab('work-register')">Registro de Trabajo</button>
+    <button class="tab-button" onclick="openTab('inventory')">Inventario</button>
+    <button class="tab-button" onclick="openTab('saved-works')">Trabajos Guardados</button>
+    <button class="tab-button" onclick="openTab('finances')">Finanzas</button>
+    <button class="tab-button" onclick="signOut()">Cerrar Sesión</button>
   </div>
 
+  <!-- Nuevo Cliente -->
+  <div id="new-client" class="tab-content card">
+    <h3>Ingresar Cliente</h3>
+    <form id="client-form">
+      <input type="text" id="client-name" placeholder="Nombre del cliente" required>
+      <input type="tel" id="client-phone" placeholder="Número telefónico" required>
+      <input type="text" id="client-plates" placeholder="Placas del carro" required>
+      <input type="text" id="client-model" placeholder="Modelo del carro" required>
+      <input type="number" id="client-year" placeholder="Año del carro" required>
+      <button type="submit">Guardar Cliente</button>
+    </form>
+    <p id="client-message"></p>
+  </div>
+
+  <!-- Registro de Trabajo -->
+  <div id="work-register" class="tab-content">
+    <h3>Registro de Trabajo</h3>
+    <form id="work-form">
+      <input type="text" id="client-search" placeholder="Buscar cliente (nombre, teléfono, placas)" required>
+      <div id="search-results" style="max-height:150px; overflow-y:auto;"></div>
+      <input type="text" id="work-date" placeholder="Fecha (YYYY-MM-DD)" required>
+      <textarea id="work-description" placeholder="Descripción del servicio" required></textarea>
+      <select id="work-worker" required>
+        <option value="" disabled selected>Selecciona trabajador</option>
+        <option value="Trabajador 1">Trabajador 1</option>
+        <option value="Trabajador 2">Trabajador 2</option>
+      </select>
+
+      <div id="used-parts-section">
+        <h4>Piezas Utilizadas</h4>
+        <input type="text" id="work-part-search" placeholder="Buscar pieza (modelo o nombre)">
+        <div id="part-results" style="max-height:150px; overflow-y:auto;"></div>
+        <button type="button" onclick="addUsedPart()">Agregar Pieza Utilizada</button>
+        <div id="used-parts-list"></div>
+      </div>
+
+      <input type="file" id="work-photo" accept="image/*" style="display:none">
+      <div id="work-photo-preview"></div>
+      <button type="button" id="add-photo-btn" onclick="document.getElementById('work-photo').click()">Agregar otra foto</button>
+
+      <input type="number" id="work-price" placeholder="Precio" required min="0" step="0.01">
+      <div>
+        <label for="work-payment-method">Método de pago:</label>
+        <select id="work-payment-method" required>
+          <option value="cash">Efectivo</option>
+          <option value="card">Transferencia/Tarjeta</option>
+        </select>
+      </div>
+      <select id="work-warranty" required>
+        <option value="" disabled selected>Selecciona garantía</option>
+        <option value="0 días">0 días</option>
+        <option value="1 mes">1 mes</option>
+      </select>
+      <button type="submit">Guardar Trabajo</button>
+    </form>
+    <p id="work-message"></p>
+  </div>
+
+  <!-- Inventario -->
+  <div id="inventory" class="tab-content">
+    <h3>Inventario</h3>
+    <form id="inventory-form">
+      <input type="text" id="part-name" placeholder="Nombre de la pieza" required>
+      <input type="text" id="part-model" placeholder="Modelo del carro" required>
+      <input type="number" id="part-quantity" placeholder="Cantidad" required min="1">
+      <input type="number" id="part-buy-price" placeholder="Precio de compra" required min="0" step="0.01">
+      <input type="number" id="part-sell-price" placeholder="Precio de venta" required min="0" step="0.01">
+      <input type="file" id="part-photo" accept="image/*" onchange="previewPhoto()">
+      <div id="photo-preview"></div>
+      <button type="submit">Agregar Pieza</button>
+    </form>
+    <input type="text" id="search-inventory" placeholder="Buscar pieza (nombre o modelo)">
+    <div id="inventory-list" style="max-height:300px; overflow-y:auto;"></div>
+    <p id="inventory-message"></p>
+  </div>
+
+  <!-- Trabajos Guardados -->
+  <div id="saved-works" class="tab-content">
+    <h3>Trabajos Guardados</h3>
+    <input type="text" id="saved-client-search" placeholder="Buscar cliente" required>
+    <div id="saved-client-results" style="max-height:150px; overflow-y:auto;"></div>
+    <div id="works-list" style="max-height:300px; overflow-y:auto;"></div>
+    <p id="saved-works-message"></p>
+  </div>
+
+  <!-- Finanzas -->
+  <div id="finances" class="tab-content">
+    <h3>Finanzas</h3>
+    <div>
+      <h4>Ganancias Diarias (Hoy: <span id="current-date"></span>)</h4>
+      <p id="daily-profit">$0.00</p>
+    </div>
+    <div>
+      <h4>Ganancias Mensuales (Mes: <span id="current-month"></span>)</h4>
+      <p id="monthly-profit">$0.00</p>
+    </div>
+
+    <h4>Gastos Misceláneos (Caja Chica)</h4>
+    <form id="misc-expense-form">
+      <input type="text" id="expense-description" placeholder="Descripción" required>
+      <input type="number" id="expense-amount" placeholder="Monto" required min="0" step="0.01">
+      <input type="date" id="expense-date" required>
+      <button type="submit">Agregar Gasto</button>
+    </form>
+    <p id="misc-expense-message"></p>
+    <div id="misc-expenses-list" style="max-height:300px; overflow-y:auto;"></div>
+
+    <h4>Resumen de Corte de Caja</h4>
+    <div class="finance-summary-container">
+      <table id="finance-summary">
+        <thead>
+          <tr>
+            <th>Período</th>
+            <th>Ingresos</th>
+            <th>Gastos Inventario</th>
+            <th>Gastos Misceláneos</th>
+            <th>Saldo Neto</th>
+            <th>Piezas Usadas</th>
+            <th>Recomendación</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr id="daily-summary"></tr>
+          <tr id="weekly-summary"></tr>
+          <tr id="monthly-summary"></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Ingresos por Método de Pago</h4>
+    <div>
+      <label for="month-select">Seleccionar mes:</label>
+      <select id="month-select" onchange="updateFinancesWithPaymentMethod()">
+        <option value="2025-01">Enero 2025</option>
+        <option value="2025-02">Febrero 2025</option>
+        <option value="2025-03">Marzo 2025</option>
+        <option value="2025-04">Abril 2025</option>
+        <option value="2025-05">Mayo 2025</option>
+        <option value="2025-06">Junio 2025</option>
+        <option value="2025-07">Julio 2025</option>
+        <option value="2025-08">Agosto 2025</option>
+        <option value="2025-09">Septiembre 2025</option>
+        <option value="2025-10">Octubre 2025</option>
+        <option value="2025-11">Noviembre 2025</option>
+        <option value="2025-12">Diciembre 2025</option>
+      </select>
+    </div>
+
+    <div class="payment-summary">
+      <div class="payment-method-card">
+        <h4>Efectivo</h4>
+        <p id="cash-total">$0.00</p>
+      </div>
+      <div class="payment-method-card">
+        <h4>Transferencia/Tarjeta</h4>
+        <p id="card-total">$0.00</p>
+      </div>
+    </div>
+
+    <div class="download-buttons">
+      <button onclick="downloadPDFReport()">Descargar Reporte PDF</button>
+      <button onclick="downloadExcelReport()">Descargar Excel</button>
+    </div>
+  </div>
   <div id="loader" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center;">
     <div style="border:8px solid #f3f3f3; border-top:8px solid #1877f2; border-radius:50%; width:60px; height:60px; animation:spin 1s linear infinite;"></div>
   </div>
