@@ -1,194 +1,186 @@
+
+/* ======= Layout General ======= */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f0f2f5;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f4f6f9;
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ======= Sidebar ======= */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 220px;
+  height: 100%;
+  background: #1877f2;
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h2 {
+  color: #fff;
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 20px;
+}
+
+.sidebar .tab-button {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.sidebar .tab-button:hover,
+.sidebar .tab-button.active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ======= Contenido Principal ======= */
+.main-content {
+  margin-left: 220px; /* espacio para la sidebar */
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  background: #f0f2f5;
+  min-height: 100vh;
+}
+
+/* ======= Cards ======= */
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+/* ======= Tabs ======= */
+.tab-content {
+  display: none;
+  margin-left: 220px; /* desplaza el contenido hacia la derecha del sidebar */
+  padding: 20px; /* opcional, para que no quede pegado al borde */
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ======= Forms, Inputs y Selects ======= */
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* ======= Botones ======= */
+button {
+  background: #1877f2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 15px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button:hover {
+  background: #145cc9;
+}
+
+/* Botones rojos (eliminar, descargar PDF/Excel) */
+.button-red {
+  background-color: #ff4444;
+}
+
+.button-red:hover {
+  background-color: #cc0000;
+}
+
+/* ======= Mensajes ======= */
+#auth-message,
+#client-message,
+#work-message,
+#inventory-message,
+#saved-works-message,
+#misc-expense-message {
+  font-size: 14px;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+#auth-message,
+#misc-expense-message {
+  color: #e74c3c;
+}
+
+#client-message,
+#work-message,
+#inventory-message,
+#saved-works-message {
+  color: green;
+}
+
+/* ======= Resultados de búsqueda ======= */
+.result-item {
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.result-item:hover {
+  background-color: #f0f2f5;
+}
+
+/* ======= Inventario ======= */
+.inventory-item {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Preview de imágenes */
+#photo-preview img,
+#work-photo-preview img {
+  margin-top: 10px;
+  max-width: 120px;
+  border-radius: 6px;
+}
+
+/* ======= Loader ======= */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
   }
-  
-  .container {
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    width: 400px;
-    text-align: center;
+  100% {
+    transform: rotate(360deg);
   }
-  
-  h1 {
-    color: #1877f2;
-    font-size: 24px;
-    margin-bottom: 20px;
-  }
-  
-  h2 {
-    font-size: 18px;
-    margin-bottom: 15px;
-  }
-  
-  input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-  }
-  
-  button {
-    width: 100%;
-    padding: 10px;
-    background-color: #1877f2;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-size: 16px;
-    cursor: pointer;
-    margin: 5px 0;
-  }
-  
-  button:hover {
-    background-color: #166fe5;
-  }
-  
-  #auth-message {
-    color: red;
-    font-size: 14px;
-    margin-top: 10px;
-  }
-  form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  #client-form input {
-    margin: 8px 0;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-  }
-  
-  #client-form button {
-    margin-top: 10px;
-    background-color: #1877f2;
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  
-  #client-form button:hover {
-    background-color: #166fe5;
-  }
-  
-  #client-message {
-    color: green;
-    font-size: 14px;
-    margin-top: 10px;
-  }
-  .tabs {
-    display: flex;
-    margin-bottom: 20px;
-  }
-  
-  .tab-button {
-    flex: 1;
-    padding: 10px;
-    background-color: #154b9b;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    border-bottom: 2px solid transparent;
-  }
-  
-  .tab-button.active {
-    background-color: rgba(17, 3, 78, 0.662);
-    border-bottom: 2px solid #1877f2;
-    font-weight: bold;
-  }
-  
-  .tab-content {
-    display: none;
-  }
-  
-  .tab-content.active {
-    display: block;
-  }
-  
-  #work-form textarea {
-    width: 100%;
-    padding: 10px;
-    margin: 8px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-    resize: vertical;
-  }
-  
-  #work-form select {
-    width: 100%;
-    padding: 10px;
-    margin: 8px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-  }
-  
-  .result-item {
-    padding: 8px;
-    border-bottom: 1px solid #ddd;
-    cursor: pointer;
-  }
-  
-  .result-item:hover {
-    background-color: #f0f2f5;
-  }
-  
-  #work-message {
-    color: green;
-    font-size: 14px;
-    margin-top: 10px;
-  }
-  .inventory-item {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .inventory-item button {
-    padding: 5px 10px;
-    background-color: #ff4444;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  
-  .inventory-item button:hover {
-    background-color: #cc0000;
-  }
-  
-  #photo-preview img {
-    margin-top: 10px;
-  }
-  
-  #inventory-form input[type="file"] {
-    margin: 8px 0;
-  }
-  @keyframes spin {
-    0% { transform: rotate(0deg);}
-    100% { transform: rotate(360deg);}
-  }
-  /* Resumen de Corte de Caja */
+}
+
+/* ======= Finances / Resumen de Corte de Caja ======= */
 #finance-summary {
   width: 100%;
+  min-width: 800px;
   border-collapse: collapse;
   margin-top: 16px;
   background: #fff;
@@ -196,7 +188,8 @@ body {
   font-size: 1rem;
 }
 
-#finance-summary th, #finance-summary td {
+#finance-summary th,
+#finance-summary td {
   border: 1px solid #e0e0e0;
   padding: 10px 8px;
   text-align: center;
@@ -231,13 +224,16 @@ body {
   color: #e74c3c;
 }
 
-#daily-profit, #monthly-profit {
+/* ======= Profit ======= */
+#daily-profit,
+#monthly-profit {
   font-size: 1.3em;
   font-weight: bold;
   color: #1877f2;
   margin-bottom: 8px;
 }
 
+/* Caja chica / gastos misceláneos */
 #misc-expenses-list {
   background: #f7faff;
   border-radius: 6px;
@@ -250,21 +246,63 @@ body {
   margin-bottom: 4px;
 }
 
-#misc-expense-message {
-  font-weight: bold;
-  color: #e74c3c;
-  margin-bottom: 8px;
-}
-/* Centrar la tabla de finanzas */
-
+/* ======= Contenedor resumen finanzas ======= */
 .finance-summary-container {
   display: flex;
   justify-content: center;
-  align-items: center;
   width: 100%;
+  overflow-x: auto;
 }
 
 #finance-summary {
   margin-left: auto;
   margin-right: auto;
+}
+
+/* ======= Payment Summary ======= */
+.payment-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.payment-method-card {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  text-align: center;
+  border-left: 4px solid #007bff;
+}
+
+.payment-method-card:first-child {
+  border-left-color: #28a745;
+}
+
+/* ======= Botones Descargar ======= */
+.download-buttons {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.download-buttons button {
+  background: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 5px;
+}
+
+.download-buttons button:hover {
+  background: #c82333;
+}
+.welcome-title {
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #1877f2;
+  margin-top: 40px;
+  margin-bottom: 20px;
 }
