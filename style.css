@@ -186,3 +186,85 @@ body {
     0% { transform: rotate(0deg);}
     100% { transform: rotate(360deg);}
   }
+  /* Resumen de Corte de Caja */
+#finance-summary {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  font-size: 1rem;
+}
+
+#finance-summary th, #finance-summary td {
+  border: 1px solid #e0e0e0;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+#finance-summary th {
+  background: #1877f2;
+  color: #fff;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+#finance-summary tr:nth-child(even) {
+  background: #f7faff;
+}
+
+#finance-summary tr:hover {
+  background: #e3f0ff;
+}
+
+#finance-summary td {
+  color: #222;
+}
+
+#finance-summary td span {
+  font-weight: bold;
+  color: #1877f2;
+}
+
+#finance-summary .recommendation {
+  font-style: italic;
+  color: #e74c3c;
+}
+
+#daily-profit, #monthly-profit {
+  font-size: 1.3em;
+  font-weight: bold;
+  color: #1877f2;
+  margin-bottom: 8px;
+}
+
+#misc-expenses-list {
+  background: #f7faff;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 10px;
+  font-size: 0.98em;
+}
+
+#misc-expenses-list div {
+  margin-bottom: 4px;
+}
+
+#misc-expense-message {
+  font-weight: bold;
+  color: #e74c3c;
+  margin-bottom: 8px;
+}
+/* Centrar la tabla de finanzas */
+
+.finance-summary-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+#finance-summary {
+  margin-left: auto;
+  margin-right: auto;
+}
