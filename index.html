@@ -203,14 +203,14 @@
     };
 
     window.signOut = function () {
-      signOut(auth)
-        .then(() => {
-          document.getElementById('auth-section').style.display = 'block';
-          document.getElementById('app-section').style.display = 'none';
-        })
-        .catch(error => {
-          document.getElementById('auth-message').innerText = error.message;
-        });
+  firebaseSignOut(auth)
+    .then(() => {
+      document.getElementById('auth-section').style.display = 'block';
+      document.getElementById('app-section').style.display = 'none';
+    })
+    .catch(error => {
+      document.getElementById('auth-message').innerText = error.message;
+    });
     };
 
     window.openTab = function (tabName) {
@@ -385,9 +385,23 @@ window.removePart = async function (partId) {
   </script>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
-    import { getDatabase, ref, push, set, onValue, runTransaction, remove, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut as firebaseSignOut   // 👈 renombramos aquí
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { 
+  getDatabase, 
+  ref, 
+  push, 
+  set, 
+  onValue, 
+  runTransaction, 
+  remove, 
+  onDisconnect 
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
     const firebaseConfig = {
       // Reemplaza con tu configuración real de Firebase
@@ -1592,6 +1606,7 @@ window.downloadExcelReport = downloadExcelReport;
     }
   }, { onlyOnce: true });
 };
+ window.firebaseSignOut = firebaseSignOut;
   </script>
 </body>
 </html>
